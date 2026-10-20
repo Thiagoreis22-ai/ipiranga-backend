@@ -60,7 +60,7 @@ def build_ops_ws_router(db, jwt_secret):
                     pipeline = [
                         {"$match": {"tag_id": {"$in": ids}}},
                         {"$sort": {"observed_at": -1}},
-                        {"$group": {"_id": "$tag_id", "reading": {"$first": "$$ROOT"}}}},
+                        {"$group": {"_id": "$tag_id", "reading": {"$first": "$ROOT"}}},
                         {"$project": {"_id": 0, "reading": 1}}
                     ]
                     rows = await db.industrial_samples.aggregate(pipeline).to_list(300)
