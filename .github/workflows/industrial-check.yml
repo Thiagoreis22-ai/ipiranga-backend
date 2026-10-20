@@ -17,4 +17,4 @@ jobs:
       - name: Verificar sintaxe
         run: python -m compileall -q server.py ops_router.py ops_ws.py
       - name: Testar contratos e validação
-        run: pytest -q tests/test_ops_contract.py
+        run: PYTHONPATH=. pytest -q tests/test_ops_contract.py
