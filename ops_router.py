@@ -418,7 +418,13 @@ def build_ops_router(db, get_current_user):
             })
         await db.industrial_samples.insert_many(batch)
         for row in batch:
-            await alarm_for_sample(catalog[row["tag_id"]], row)
+            # Não produzir/limpar alarmes a partir de amostras atrasadas.
+            newest = await db.industrial_samples.find_one(
+                {"tag_id": row["tag_id"]}, {"_id": 0, "id": 1},
+                sort=[("observed_at", -1), ("received_at", -1)]
+            )
+            if newest and newest["id"] == row["id"]:
+                await alarm_for_sample(catalog[row["tag_id"]], row)
         return {"received": len(batch), "accepted": True, "physical_command_sent": False}
 
     @router.get("/ai/status")
