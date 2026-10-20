@@ -1200,6 +1200,8 @@ async def health():
 app.include_router(api_router)
 from ops_router import build_ops_router
 app.include_router(build_ops_router(db, get_current_user))
+from ops_ws import build_ops_ws_router
+app.include_router(build_ops_ws_router(db, JWT_SECRET))
 
 app.add_middleware(
     CORSMiddleware,
