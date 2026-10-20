@@ -1,0 +1,21 @@
+# Credenciais e configuracoes locais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+# Logs e dados
+*.log
+*.db
+*.sqlite*
+# IDEs
+.vscode/
+.idea/
