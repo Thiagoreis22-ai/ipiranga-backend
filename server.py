@@ -2,14 +2,7 @@ from dotenv import load_dotenv
 import os
 from pymongo import MongoClient
 
-# Carrega variáveis do .env
-load_dotenv()
-
-# Conexão com MongoDB Atlas
-client = MongoClient(os.getenv("MONGO_URL"))
-db = client.get_database()
-
-print("🔥 Backend conectado ao MongoDB Atlas!")
+# Configuração carregada pela aplicação principal abaixo.
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
@@ -1203,8 +1196,10 @@ async def root():
 async def health():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
-# Include the router in the main app
+# Include the routers in the main app
 app.include_router(api_router)
+from ops_router import build_ops_router
+app.include_router(build_ops_router(db, get_current_user))
 
 app.add_middleware(
     CORSMiddleware,
