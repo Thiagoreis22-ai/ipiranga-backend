@@ -34,7 +34,9 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # JWT Config
-JWT_SECRET = os.environ.get('JWT_SECRET', 'ipiranga-ai-secret-key-2026')
+JWT_SECRET = os.environ.get('JWT_SECRET', '')
+if len(JWT_SECRET) < 32:
+    raise RuntimeError("Configure JWT_SECRET com pelo menos 32 caracteres no ambiente.")
 JWT_ALGORITHM = "HS256"
 
 # Emergent LLM Key
@@ -1207,7 +1209,7 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=[origin.strip() for origin in os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',') if origin.strip() and origin.strip() != '*'],
     allow_methods=["*"],
     allow_headers=["*"],
 )
