@@ -165,16 +165,18 @@ def build_ops_router(db, get_current_user):
             {"$match": {"tag_id": {"$in": tag_ids}}},
             {"$sort": {"observed_at": -1}},
             {"$group": {"_id": "$tag_id", "data": {"$first": "$$ROOT"}}},
-            {"$project": {"_id": 0, "data._id": 0, "data": 1}}
+            {"$project": {"_id": 0, "data": 1}}
         ]
         rows = await db.industrial_samples.aggregate(pipeline).to_list(len(tag_ids))
+        for row in rows:
+            row["data"].pop("_id", None)
         return {row["data"]["tag_id"]: row["data"] for row in rows}
 
     def validate_sample(sample):
         seen = parse_time(sample["observed_at"])
         delta = (now_utc() - seen).total_seconds()
         quality = sample["quality"]
-        if delta < -120 or delta > 600:
+        if delta < -120 or delta > 120:
             return {**sample, "valid_now": False, "freshness": "STALE",
                     "status": "SEM DADO ATUAL"}
         return {**sample, "valid_now": quality == "GOOD",
