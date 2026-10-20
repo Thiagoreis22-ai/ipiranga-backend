@@ -28,7 +28,7 @@ db = client[os.environ['DB_NAME']]
 
 # JWT Config
 JWT_SECRET = os.environ.get('JWT_SECRET', '')
-if len(JWT_SECRET) < 32:
+if len(JWT_SECRET) < 32 or JWT_SECRET.startswith("SUBSTITUA_"):
     raise RuntimeError("Configure JWT_SECRET com pelo menos 32 caracteres no ambiente.")
 JWT_ALGORITHM = "HS256"
 
