@@ -753,30 +753,8 @@ async def get_daily_dosage(days: int = 7, current_user: dict = Depends(get_curre
 
 # ============== AI CHAT ROUTES ==============
 
-SYSTEM_PROMPT = """Você é o Assistente Operacional IPIRANGA AI, especialista em Tratamento de Caldo para usinas sucroenergéticas.
-
-Sua função é analisar situações operacionais reportadas pelos operadores e fornecer:
-1. CAUSA PROVÁVEL: Identifique a causa mais provável do problema
-2. AÇÃO RECOMENDADA: Sugira ações corretivas específicas
-3. NÍVEL DE RISCO: Classifique como BAIXO, MÉDIO, ALTO ou CRÍTICO
-4. ESCALAR: Indique se deve acionar supervisão (true/false)
-
-Conhecimentos técnicos:
-- pH ideal do caldo: 6.8 a 7.2
-- Brix ideal: 14 a 18
-- Pol ideal: 12 a 16
-- Turbidez máxima aceitável: 500 NTU
-- Temperatura de aquecimento: 103-105°C
-- Vazão nominal: conforme projeto da usina
-
-Problemas comuns:
-- pH baixo (<6.5): indica fermentação ou contaminação
-- pH alto (>7.5): excesso de cal
-- Turbidez alta: problemas na decantação ou floculação
-- Temperatura baixa: reduz eficiência da clarificação
-- Brix/Pol fora de faixa: problemas na extração
-
-Sempre responda em português brasileiro de forma técnica e profissional."""
+# Nenhum parâmetro "ideal" genérico é usado como limite operacional da Usina.
+# Valores válidos devem ser cadastrados pela engenharia em industrial_tags.
 
 @api_router.post("/chat", response_model=ChatResponse)
 async def chat_with_ai(message: ChatMessage, current_user: dict = Depends(get_current_user)):
