@@ -1,0 +1,20 @@
+name: Verificacao da plataforma industrial
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/plataforma-web-integracao-segura
+jobs:
+  api-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar bibliotecas de teste
+        run: python -m pip install "fastapi>=0.110" "pydantic>=2.6" "pytest>=8"
+      - name: Verificar sintaxe
+        run: python -m compileall -q server.py ops_router.py ops_ws.py
+      - name: Testar contratos e validação
+        run: pytest -q tests/test_ops_contract.py
