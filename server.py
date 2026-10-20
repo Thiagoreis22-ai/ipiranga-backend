@@ -787,43 +787,12 @@ Sempre responda em português brasileiro de forma técnica e profissional."""
 async def chat_with_ai(message: ChatMessage, current_user: dict = Depends(get_current_user)):
     session_id = message.session_id or str(uuid.uuid4())
     
-    try:
-        response = "IA funcionando sem emergent ✅"
-
-        chat_doc = {
-            "id": str(uuid.uuid4()),
-            "session_id": session_id,
-        "user_id": current_user["user_id"],
-            "user_message": message.message,
-            "ai_response": response,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-        await db.chat_history.insert_one(chat_doc)
-        
-        risk_level = "MÉDIO"
-        escalate = False
-        
-        response_lower = response.lower()
-        if "crítico" in response_lower or "urgente" in response_lower:
-            risk_level = "CRÍTICO"
-            escalate = True
-        elif "alto" in response_lower:
-            risk_level = "ALTO"
-            escalate = True
-        elif "baixo" in response_lower:
-            risk_level = "BAIXO"
-        
-        return ChatResponse(
-            response=response,
-            risk_level=risk_level,
-            probable_cause="Análise incluída na resposta",
-            recommended_action="Ações incluídas na resposta",
-            escalate=escalate,
-            session_id=session_id
-        )
-    except Exception as e:
-        logger.error(f"Error in AI chat: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro ao processar mensagem: {str(e)}")
+    # Nenhuma resposta artificial é apresentada como inteligência integrada.
+    # Habilitar somente após implantação de um serviço real aprovado pela engenharia.
+    raise HTTPException(
+        status_code=503,
+        detail="IA indisponível: integração com modelo real ainda não configurada."
+    )
 
 @api_router.get("/chat/history")
 async def get_chat_history(session_id: Optional[str] = None, limit: int = 50, current_user: dict = Depends(get_current_user)):
@@ -1160,31 +1129,32 @@ async def list_operators(current_user: dict = Depends(require_roles(["supervisor
 
 @api_router.post("/setup/admin")
 async def setup_admin():
-    """Create initial admin user if no users exist"""
+    """Bootstrap permitido somente com senha forte configurada fora do código."""
     user_count = await db.users.count_documents({})
     if user_count > 0:
         raise HTTPException(status_code=400, detail="Sistema já possui usuários cadastrados")
-    
-    admin_id = str(uuid.uuid4())
+    initial_password = os.environ.get("INITIAL_ADMIN_PASSWORD", "")
+    if len(initial_password) < 12:
+        raise HTTPException(
+            status_code=503,
+            detail="Configuração segura pendente: defina INITIAL_ADMIN_PASSWORD com pelo menos 12 caracteres no servidor."
+        )
     admin_doc = {
-        "id": admin_id,
+        "id": str(uuid.uuid4()),
         "name": "Administrador",
         "matricula": "ADM001",
         "sector": "Tratamento de Caldo",
         "function": "Administrador do Sistema",
-        "password": hash_password("admin123"),
+        "password": hash_password(initial_password),
         "role": "admin",
         "active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "created_by": None
     }
     await db.users.insert_one(admin_doc)
-    
     return {
-        "message": "Administrador criado com sucesso",
-        "matricula": "ADM001",
-        "senha_inicial": "admin123",
-        "aviso": "ALTERE A SENHA IMEDIATAMENTE!"
+        "message": "Administrador inicial criado. Remova INITIAL_ADMIN_PASSWORD das variáveis do servidor.",
+        "matricula": "ADM001"
     }
 
 @api_router.get("/setup/status")
@@ -1195,6 +1165,31 @@ async def get_setup_status():
         "needs_setup": user_count == 0,
         "user_count": user_count
     }
+
+# ============== INTEGRACAO INDUSTRIAL (SOMENTE LEITURA) ==============
+
+@api_router.get("/industrial/status")
+async def industrial_status(current_user: dict = Depends(get_current_user)):
+    """Retorna estado real da integracao. Nao fabrica telemetria."""
+    return {
+        "integration_status": "NOT_CONFIGURED",
+        "plc_vendor": None,
+        "connector_type": None,
+        "last_real_reading": None,
+        "telemetry_status": "NO_REAL_DATA",
+        "ai_analysis_status": "NOT_CONFIGURED",
+        "automatic_control_enabled": False,
+        "write_commands_enabled": False,
+        "message": "Aguardando conexão industrial autorizada."
+    }
+
+
+@api_router.get("/industrial/tags")
+async def industrial_tags(current_user: dict = Depends(get_current_user)):
+    """Nenhuma tag e inventada. Devolve apenas tags cadastradas de fato."""
+    tags = await db.industrial_tags.find({}, {"_id": 0}).limit(500).to_list(500)
+    return {"items": tags, "count": len(tags)}
+
 
 # ============== BASE ROUTES ==============
 
@@ -1221,4 +1216,4 @@ app.add_middleware(
 async def shutdown_db_client():
     client.close()
 # Mostrar coleções existentes
-print("Coleções no banco:", db.list_collection_names())
+# Colecoes consultadas apenas em chamadas assincronas sob demanda.
