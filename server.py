@@ -1193,6 +1193,122 @@ async def industrial_tags(current_user: dict = Depends(get_current_user)):
     return {"items": tags, "count": len(tags)}
 
 
+
+# ============== COI: CONSULTAS INDUSTRIAIS, SEM COMANDOS ==============
+# Somente dados que existam na base, enviados por integrações autorizadas.
+# Este módulo nunca escreve em CLP, altera setpoints ou habilita controle.
+from datetime import timedelta
+from math import isfinite
+
+def _real_point(doc: dict):
+    """Descarta dados incompletos; preserva carimbo e qualidade originais."""
+    value = doc.get("value")
+    timestamp = doc.get("timestamp")
+    if isinstance(value, bool) or not isinstance(value, (float, int)) or not isfinite(value):
+        return None
+    if not isinstance(timestamp, str) or not timestamp:
+        return None
+    return {
+        "tag_id": str(doc.get("tag_id", "")),
+        "value": value,
+        "unit": doc.get("unit"),
+        "timestamp": timestamp,
+        "quality": doc.get("quality", "UNKNOWN"),
+        "source": doc.get("source"),
+    }
+
+
+@api_router.get("/industrial/overview")
+async def industrial_overview(current_user: dict = Depends(get_current_user)):
+    """Contagens reais; zero significa ausência de cadastros, não operação zerada."""
+    tags = await db.industrial_tags.count_documents({})
+    readings = await db.industrial_readings.count_documents({})
+    loops = await db.industrial_control_loops.count_documents({})
+    alarms = await db.industrial_alarms.count_documents({"state": {"$in": ["ACTIVE", "UNACKNOWLEDGED"]}})
+    return {
+        "registered_tags": tags,
+        "recorded_readings": readings,
+        "registered_control_loops": loops,
+        "active_alarms": alarms,
+        "automatic_commands_enabled": False,
+        "plc_write_enabled": False,
+        "data_source": "industrial_database",
+        "note": "Dados consultados do banco; conexão PLC/SCADA ainda não foi homologada."
+    }
+
+
+@api_router.get("/industrial/history")
+async def industrial_history(
+    tag_id: str,
+    hours: int = 8,
+    limit: int = 500,
+    current_user: dict = Depends(get_current_user)
+):
+    """Histórico real, paginado e somente leitura. Nunca preenche intervalos com valores inventados."""
+    tag_id = tag_id.strip()
+    if not 1 <= len(tag_id) <= 128:
+        raise HTTPException(status_code=422, detail="Tag inválida")
+    if hours not in (1, 8, 24, 168) or not 1 <= limit <= 1000:
+        raise HTTPException(status_code=422, detail="Janela ou limite inválido")
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    docs = await db.industrial_readings.find(
+        {"tag_id": tag_id}, {"_id": 0}
+    ).sort("timestamp", -1).limit(limit).to_list(limit)
+    points = []
+    for doc in docs:
+        point = _real_point(doc)
+        if not point:
+            continue
+        try:
+            measured_at = datetime.fromisoformat(point["timestamp"].replace("Z", "+00:00"))
+            if measured_at.tzinfo is None:
+                continue
+            if measured_at.astimezone(timezone.utc) < since:
+                continue
+        except ValueError:
+            continue
+        points.append(point)
+    return {"tag_id": tag_id, "hours": hours, "items": list(reversed(points)), "count": len(points)}
+
+
+@api_router.get("/industrial/loops")
+async def industrial_loops(current_user: dict = Depends(get_current_user)):
+    """Mostra apenas malhas reais cadastradas; não permite troca de modo."""
+    loops = await db.industrial_control_loops.find({}, {"_id": 0}).limit(250).to_list(250)
+    items = [
+        {
+            "id": str(item.get("id") or item.get("tag") or ""),
+            "name": item.get("name") or item.get("description") or "",
+            "mode": item.get("mode") or "NOT_CONFIGURED",
+            "area": item.get("area"),
+            "pv_tag_id": item.get("pv_tag_id"),
+            "sp_tag_id": item.get("sp_tag_id"),
+            "write_enabled": False,
+        }
+        for item in loops
+    ]
+    return {"items": items, "count": len(items), "write_enabled": False}
+
+
+@api_router.get("/industrial/alarms")
+async def industrial_alarms(current_user: dict = Depends(get_current_user)):
+    """Somente alarmes industriais efetivamente registrados."""
+    alarms = await db.industrial_alarms.find({}, {"_id": 0}).sort(
+        "timestamp", -1
+    ).limit(100).to_list(100)
+    return {
+        "items": [{
+            "id": str(a.get("id") or ""),
+            "tag_id": a.get("tag_id"),
+            "priority": a.get("priority"),
+            "message": a.get("message"),
+            "state": a.get("state"),
+            "timestamp": a.get("timestamp"),
+        } for a in alarms],
+        "count": len(alarms),
+    }
+
+
 # ============== BASE ROUTES ==============
 
 @api_router.get("/")
